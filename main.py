@@ -2,7 +2,6 @@ from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
-from controllers import router
 import py_eureka_client.eureka_client as eureka_client
 import uvicorn
 import os
@@ -21,7 +20,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan,
               openapi_url="/v3/api-docs")
-app.include_router(router)
 
 
 def custom_openapi():
