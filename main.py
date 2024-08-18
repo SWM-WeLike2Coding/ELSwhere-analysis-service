@@ -20,7 +20,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan,
               openapi_url="/v3/api-docs")
-app.include_router(router)
 
 
 def custom_openapi():
