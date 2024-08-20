@@ -14,7 +14,7 @@ async def lifespan(app: FastAPI):
     await eureka_client.init_async(eureka_server=os.getenv('EUREKA_SERVER'),
                                    app_name="analysis-service",
                                    instance_host=os.getenv('INSTANCE_HOST'),
-                                   instance_port=int(os.getenv('INSTANCE_PORT')))
+                                   instance_port=int(os.getenv('INSTANCE_NON_SECURE_PORT')))
     yield
     await eureka_client.stop_async()
 
