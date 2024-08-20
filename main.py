@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
+from api.main import api_router
 import py_eureka_client.eureka_client as eureka_client
 import uvicorn
 import os
@@ -20,6 +21,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan,
               openapi_url="/v3/api-docs")
+app.include_router(api_router)
 
 
 def custom_openapi():
@@ -52,7 +54,7 @@ def custom_openapi():
 app.openapi = custom_openapi
 
 
-@app.get("/health_check")
+@app.get("/health_check", tags=["Health Check"], summary=" ")
 def health_check_handler():
     return {"status": "It's Working in " + os.getenv('APPLICATION_NAME')}
 
