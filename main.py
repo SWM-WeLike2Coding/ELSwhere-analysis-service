@@ -3,6 +3,7 @@ from fastapi.openapi.utils import get_openapi
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from api.main import api_router
+from exception.exception_handler import add_exception_handler
 import py_eureka_client.eureka_client as eureka_client
 import uvicorn
 import os
@@ -23,6 +24,7 @@ app = FastAPI(lifespan=lifespan,
               openapi_url="/v3/api-docs")
 app.include_router(api_router)
 
+add_exception_handler(app)
 
 def custom_openapi():
     if app.openapi_schema:
