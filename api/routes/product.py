@@ -1,10 +1,11 @@
-from fastapi import APIRouter, HTTPException, Path
+from fastapi import APIRouter, Path
 from typing import Dict
 from pydantic import BaseModel, RootModel
+from exception.errors import ProductServiceServerException
 import py_eureka_client.eureka_client as eureka_client
 import pandas as pd
 import json
-import urllib.request
+import urllib.error
 import yfinance as yf
 
 router = APIRouter()
@@ -31,8 +32,8 @@ async def get_price_ratio(productId: int = Path(..., description="조회할 상�
     try:
         responseProduct = await eureka_client.do_service_async("product-service", f"/v1/product/{productId}")
         product = json.loads(responseProduct)
-    except urllib.request.HTTPError as e:
-        raise HTTPException(status_code=e.code, detail=str(e))
+    except urllib.error.URLError as e:
+        raise ProductServiceServerException(productId=productId)
 
     # product-service로 부터 받은 값 변수 초기화
     initialBasePriceEvaluationDate = product["initialBasePriceEvaluationDate"]
