@@ -1,0 +1,111 @@
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+# This workflow will build a Java project with Gradle and cache/restore any dependencies to improve the workflow execution time
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-java-with-gradle
+
+name: Prod_CD
+
+on:
+  push:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  check_repo:
+    runs-on: ubuntu-latest
+    outputs:
+      cd-skip: ${{ steps.check_repo.outputs.cd-skip-value }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Repo
+        run: |
+          if [ "$GITHUB_REPOSITORY" != "YOUR_USER/YOUR_REPO_NAME" ]; then
+            echo 'cd-skip-value=true' >> $GITHUB_OUTPUT
+          else
+            echo 'cd-skip-value=false' >> $GITHUB_OUTPUT
+          fi
+
+  skip_cd:
+    needs: check_repo
+    if: github.repository != 'SWM-WeLike2Coding/ELSwhere-analysis-service'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Skip CD
+        run: |
+          echo "CD will be terminated soon..."
+          exit 0
+
+  build:
+    runs-on: ubuntu-latest
+    if: github.repository == 'SWM-WeLike2Coding/ELSwhere-analysis-service'
+    needs: check_repo
+    environment: prod
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v3
+      with:
+        python-version: 3.12
+
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Make .env
+      env:
+        PROPERTIES: ${{ secrets.PROPERTIES_TEST }}
+      run: |
+        touch ./.env
+        echo $PROPERTIES | base64 --decode > .env
+      shell: bash
+
+    - name: Test with pytest
+      run: |
+        pytest
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Docker build
+      env:
+        AWS_ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        AWS_ECR_REPOSITORY: ${{ secrets.AWS_ECR_PROD_ANALYSIS_SERVICE_REPOSITORY }}
+      run: |
+        docker build -t $AWS_ECR_REGISTRY/$AWS_ECR_REPOSITORY:${GITHUB_SHA::7} -t $AWS_ECR_REGISTRY/$AWS_ECR_REPOSITORY:latest .
+
+    - name: Docker push
+      env:
+        AWS_ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        AWS_ECR_REPOSITORY: ${{ secrets.AWS_ECR_PROD_ANALYSIS_SERVICE_REPOSITORY }}
+      run: |
+        docker push $AWS_ECR_REGISTRY/$AWS_ECR_REPOSITORY:${GITHUB_SHA::7}
+        docker push $AWS_ECR_REGISTRY/$AWS_ECR_REPOSITORY:latest
+
+    - name: SSH Remote Commands
+      uses: appleboy/ssh-action@master
+      env:
+        AWS_ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        AWS_ECR_REPOSITORY: ${{ secrets.AWS_ECR_PROD_ANALYSIS_SERVICE_REPOSITORY }}
+      with:
+        host: ${{ secrets.SERVER_HOST_PROD }}
+        username: ubuntu
+        key: ${{ secrets.PRIVATE_SUB_PRIVATE_PEM_KEY_PROD }}
+        proxy_host: ${{ secrets.BASTION_SERVER_HOST_PROD }}
+        proxy_username: ubuntu
+        proxy_key: ${{ secrets.PUBLIC_SUB_PRIVATE_PEM_KEY_PROD }}
+        envs: GITHUB_SHA,AWS_ECR_REGISTRY,AWS_ECR_REPOSITORY
+        script: |
+          ./deploy.sh $AWS_ECR_REGISTRY $AWS_ECR_REPOSITORY ${GITHUB_SHA::7}
