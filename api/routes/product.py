@@ -90,11 +90,10 @@ async def get_price_ratio(productId: int = Path(..., description="조회할 상�
 
     return result
 
-# todo : 성능 개선 필요
 @router.post("/price/ratio/list",
             summary="여러 상품 id로 최초기준가격 대비 현재 기초자산가격 비율 리스트 조회",
             description="""
-                            **recentAndInitialPriceRatio**: 각 기초자산들의 최초기준가격 대비 현재 기초자산가격 비율들 중에 가장 낮은 비율
+                            **recentAndInitialPriceRatio**: 각 기초자산들의 최초기준가격 대비 현재 기초자산가격 비율들 중에 가장 낮은 비율(종가 데이터를 못 가져오는 경우 null 값 반환)
                         """,
             response_model=List[PriceRatio]
             )
@@ -126,6 +125,10 @@ async def get_price_ratio_list(data: ProductIdListModel):
         equities = productResult["equities"].split(" / ")
         equityTickerSymbols = productResult["equityTickerSymbols"]
 
+        if datetime.strptime(initialBasePriceEvaluationDate, "%Y-%m-%d").date() > datetime.now().date():
+            tmp["recentAndInitialPriceRatio"] = None
+            continue
+
         # 각각의 종목에 대해 초기 및 최근 가격을 비동기적으로 가져옴
         tasks = []
         for equity in equities:
@@ -139,14 +142,21 @@ async def get_price_ratio_list(data: ProductIdListModel):
 
         # 최초기준가격 대비 최근 기초자산가격
         minComparedValue = float('inf')
+        initialBasePriceEvaluationDateFlag = False
         for (initial_data, recent_data), equity in zip(price_data, equities):
-            initial_close_price = initial_data.loc[initialBasePriceEvaluationDate, "Close"]
+            try:
+                initial_close_price = initial_data.loc[initialBasePriceEvaluationDate, "Close"]
+            except:
+                tmp["recentAndInitialPriceRatio"] = None
+                initialBasePriceEvaluationDateFlag = True
+                break
+
             recent_close_price = recent_data['Close'].iloc[-1]
             minComparedValue = min(minComparedValue, round((recent_close_price / initial_close_price) * 100, 2))
 
-        tmp["recentAndInitialPriceRatio"] = round((minComparedValue - 100), 2)
+        if not initialBasePriceEvaluationDateFlag:
+            tmp["recentAndInitialPriceRatio"] = round((minComparedValue - 100), 2)
         tmp["id"] = productId
 
         result.append(tmp)
 
-    return result
