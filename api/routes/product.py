@@ -2,6 +2,7 @@ from fastapi import APIRouter, Path
 from typing import Dict, List
 from pydantic import BaseModel, RootModel
 from exception.errors import ProductServiceServerException, ValidateInitialBasePriceEvaluationDateException
+from exception.error_response_examples import product_service_exception_response, validate_initial_price_exception_response
 from datetime import datetime
 from typing import Optional
 import py_eureka_client.eureka_client as eureka_client
@@ -33,8 +34,11 @@ class PriceRatio(BaseModel):
                             이 비율 정보들을 통해 사용자는 기초자산의 가격이 최초기준가격 대비 몇 퍼센트 상승하거나 하락했는지를 파악하고, 낙인 조건 도달 여부를 확인할 수 있습니다.<br/><br/>
                             **recentAndInitialPriceRatio**: 각 기초자산들의 최초기준가격 대비 현재 기초자산가격 비율들 중에 가장 낮은 비율
                         """,
-            response_model=PriceRatioResponse
-            )
+            response_model=PriceRatioResponse,
+            responses={
+                **product_service_exception_response,
+                **validate_initial_price_exception_response
+            })
 async def get_price_ratio(productId: int = Path(..., description="조회할 상품 id")):
     # 특정 상품 단건 조회 API 통신
     try:
@@ -95,8 +99,11 @@ async def get_price_ratio(productId: int = Path(..., description="조회할 상�
             description="""
                             **recentAndInitialPriceRatio**: 각 기초자산들의 최초기준가격 대비 현재 기초자산가격 비율들 중에 가장 낮은 비율(종가 데이터를 못 가져오는 경우 null 값 반환)
                         """,
-            response_model=List[PriceRatio]
-            )
+            response_model=List[PriceRatio],
+            responses={
+                **product_service_exception_response,
+                **validate_initial_price_exception_response
+            })
 async def get_price_ratio_list(data: ProductIdListModel):
     productIdList = data.productIdList
 
