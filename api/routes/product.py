@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Path
 from typing import Dict, List
 from pydantic import BaseModel, RootModel
-from exception.errors import ProductServiceServerException
+from exception.errors import ProductServiceServerException, ValidateInitialBasePriceEvaluationDateException
+from datetime import datetime
+from typing import Optional
 import py_eureka_client.eureka_client as eureka_client
 import pandas as pd
 import json
@@ -22,7 +24,7 @@ class ProductIdListModel(BaseModel):
     productIdList: List[int]
 class PriceRatio(BaseModel):
     id: int
-    recentAndInitialPriceRatio: float
+    recentAndInitialPriceRatio: Optional[float]
 
 @router.get("/price/ratio/{productId}",
             summary="상품 단건에 대한 최초기준가격 대비 현재 기초자산가격 비율 조회",
@@ -46,6 +48,9 @@ async def get_price_ratio(productId: int = Path(..., description="조회할 상�
     equities = product["equities"].split(" / ")
     equityTickerSymbols = product["equityTickerSymbols"]
 
+    if datetime.strptime(initialBasePriceEvaluationDate, "%Y-%m-%d").date() > datetime.now().date():
+        raise ValidateInitialBasePriceEvaluationDateException(productId)
+
     # yfinance에 최초기준가격평가일에 대한 각 기초자산들의 종가 데이터들 가져오기
     result = {}
     initial_tmp = {}
@@ -54,7 +59,11 @@ async def get_price_ratio(productId: int = Path(..., description="조회할 상�
         initial_data = stock_data.history(start=initialBasePriceEvaluationDate,
                                           end=pd.Timestamp(initialBasePriceEvaluationDate) + pd.Timedelta(days=1))
 
-        initial_close_price = initial_data.loc[initialBasePriceEvaluationDate, "Close"]
+        try:
+            initial_close_price = initial_data.loc[initialBasePriceEvaluationDate, "Close"]
+        except:
+            raise ValidateInitialBasePriceEvaluationDateException(productId)
+
         initial_tmp[equity] = initial_close_price
     result["initial"] = initial_tmp
 
