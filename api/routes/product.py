@@ -167,3 +167,5 @@ async def get_price_ratio_list(data: ProductIdListModel):
 
         result.append(tmp)
 
+    return result
+
