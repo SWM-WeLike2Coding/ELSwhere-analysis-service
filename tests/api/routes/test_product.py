@@ -40,7 +40,7 @@ async def test_get_price_ratio_success(mock_do_service_async, mock_product_respo
 # 최초기준가격 대비 현재 기초자산가격 비율 - 상품 API 호출이 실패할 때의 테스트 케이스
 @pytest.mark.asyncio
 async def test_get_price_ratio_failure(mock_do_service_async):
-    mock_do_service_async.side_effect = ProductServiceServerException(productId=123)
+    mock_do_service_async.side_effect = ProductServiceServerException(productIds=123)
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         response = await ac.get("/v1/product/price/ratio/1")
