@@ -4,9 +4,11 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from api.main import api_router
 from exception.exception_handler import add_exception_handler
+from core.database import Base, engine
 import py_eureka_client.eureka_client as eureka_client
 import uvicorn
 import os
+import models
 
 load_dotenv()
 
@@ -16,6 +18,8 @@ async def lifespan(app: FastAPI):
                                    app_name="analysis-service",
                                    instance_host=os.getenv('INSTANCE_HOST'),
                                    instance_port=int(os.getenv('INSTANCE_NON_SECURE_PORT')))
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
     yield
     await eureka_client.stop_async()
 
