@@ -11,5 +11,6 @@ class MonteCarloResult(Base):
     early_repayment_probability = Column(Text, nullable=False)
     maturity_repayment_probability = Column(DECIMAL(8,4), nullable=False)
     loss_probability = Column(DECIMAL(8,4), nullable=False)
+    under_knockin_barrier_probability = Column(DECIMAL(8,4), nullable=False)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     last_modified_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
