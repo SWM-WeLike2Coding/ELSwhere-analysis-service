@@ -27,7 +27,7 @@ async def get_monte_carlo(productId: int = Path(..., description="조회할 상�
                           db: AsyncSession = Depends(get_db)):
     async with db as session:
         result = await session.execute(select(MonteCarloResult).where(MonteCarloResult.product_id == productId))
-        monte_carlo_result = await result.scalars().first()
+        monte_carlo_result = result.scalars().first()
 
         if monte_carlo_result is None:
             raise MonteCarloResultException(productId)
