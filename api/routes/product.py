@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Path
+from fastapi import APIRouter, Path, Request
 from typing import Dict, List
 from pydantic import BaseModel, RootModel
 from exception.errors import ProductServiceServerException, ValidateInitialBasePriceEvaluationDateException
@@ -39,10 +39,13 @@ class PriceRatio(BaseModel):
                 **product_service_exception_response,
                 **validate_initial_price_exception_response
             })
-async def get_price_ratio(productId: int = Path(..., description="조회할 상품 id")):
+async def get_price_ratio(request: Request, productId: int = Path(..., description="조회할 상품 id")):
+    requestId = request.headers.get("requestId")
+
     # 특정 상품 단건 조회 API 통신
     try:
-        responseProduct = await eureka_client.do_service_async("product-service", f"/v1/product/{productId}")
+        headers = {"requestId": requestId}
+        responseProduct = await eureka_client.do_service_async("product-service", f"/v1/product/{productId}", headers=headers)
         product = json.loads(responseProduct)
     except urllib.error.URLError as e:
         raise ProductServiceServerException(productId)
@@ -104,12 +107,14 @@ async def get_price_ratio(productId: int = Path(..., description="조회할 상�
                 **product_service_exception_response,
                 **validate_initial_price_exception_response
             })
-async def get_price_ratio_list(data: ProductIdListModel):
+async def get_price_ratio_list(request: Request, data: ProductIdListModel):
     productIdList = data.productIdList
+    requestId = request.headers.get("requestId")
 
     async def fetch_product_info(productId):
         try:
-            responseProduct = await eureka_client.do_service_async("product-service", f"/v1/product/{productId}")
+            headers = {"requestId": requestId}
+            responseProduct = await eureka_client.do_service_async("product-service", f"/v1/product/{productId}", headers=headers)
             return json.loads(responseProduct)
         except urllib.error.URLError as e:
             raise ProductServiceServerException(productId)
