@@ -137,8 +137,11 @@ async def get_price_ratio_list(request: Request, data: ProductIdListModel):
         equities = productResult["equities"].split(" / ")
         equityTickerSymbols = productResult["equityTickerSymbols"]
 
+        tmp["id"] = productId
+
         if datetime.strptime(initialBasePriceEvaluationDate, "%Y-%m-%d").date() > datetime.now().date():
             tmp["recentAndInitialPriceRatio"] = None
+            result.append(tmp)
             continue
 
         # 각각의 종목에 대해 초기 및 최근 가격을 비동기적으로 가져옴
@@ -168,7 +171,6 @@ async def get_price_ratio_list(request: Request, data: ProductIdListModel):
 
         if not initialBasePriceEvaluationDateFlag:
             tmp["recentAndInitialPriceRatio"] = round((minComparedValue - 100), 2)
-        tmp["id"] = productId
 
         result.append(tmp)
 
