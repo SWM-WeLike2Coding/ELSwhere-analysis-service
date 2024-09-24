@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
+from uvicorn.config import LOGGING_CONFIG
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from api.main import api_router
@@ -98,6 +99,8 @@ def health_check_handler():
 
 if __name__ == "__main__":
     try:
+        LOGGING_CONFIG["formatters"]["default"]["fmt"] = "%(asctime)s [%(name)s] %(levelprefix)s %(message)s"
+        LOGGING_CONFIG["formatters"]["access"]["fmt"] = '%(asctime)s [%(name)s] %(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s'
         uvicorn.run(app, host="0.0.0.0", port=int(os.getenv('INSTANCE_PORT')))
     except KeyboardInterrupt:
         pass
