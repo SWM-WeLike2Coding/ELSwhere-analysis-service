@@ -1,12 +1,17 @@
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
+from uvicorn.config import LOGGING_CONFIG
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from api.main import api_router
 from exception.exception_handler import add_exception_handler
+from core.database import Base, engine
+from core.opentelemetry import setup_opentelemetry
+# from core.logger import setup_logger
 import py_eureka_client.eureka_client as eureka_client
 import uvicorn
 import os
+import models
 
 load_dotenv()
 
@@ -16,12 +21,18 @@ async def lifespan(app: FastAPI):
                                    app_name="analysis-service",
                                    instance_host=os.getenv('INSTANCE_HOST'),
                                    instance_port=int(os.getenv('INSTANCE_NON_SECURE_PORT')))
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
     yield
     await eureka_client.stop_async()
 
 
 app = FastAPI(lifespan=lifespan,
               openapi_url="/v3/api-docs")
+
+# OpenTelemetry 설정을 위한 함수 호출
+setup_opentelemetry(app)
+
 app.include_router(api_router)
 
 add_exception_handler(app)
@@ -63,6 +74,8 @@ def health_check_handler():
 
 if __name__ == "__main__":
     try:
+        LOGGING_CONFIG["formatters"]["default"]["fmt"] = "%(asctime)s [%(name)s] %(levelprefix)s %(message)s"
+        LOGGING_CONFIG["formatters"]["access"]["fmt"] = '%(asctime)s [%(name)s] %(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s'
         uvicorn.run(app, host="0.0.0.0", port=int(os.getenv('INSTANCE_PORT')))
     except KeyboardInterrupt:
         pass

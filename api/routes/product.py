@@ -1,7 +1,10 @@
-from fastapi import APIRouter, Path
+from fastapi import APIRouter, Path, Request
 from typing import Dict, List
 from pydantic import BaseModel, RootModel
-from exception.errors import ProductServiceServerException
+from exception.errors import ProductServiceServerException, ValidateInitialBasePriceEvaluationDateException
+from exception.error_response_examples import product_service_exception_response, validate_initial_price_exception_response
+from datetime import datetime
+from typing import Optional
 import py_eureka_client.eureka_client as eureka_client
 import pandas as pd
 import json
@@ -22,7 +25,7 @@ class ProductIdListModel(BaseModel):
     productIdList: List[int]
 class PriceRatio(BaseModel):
     id: int
-    recentAndInitialPriceRatio: float
+    recentAndInitialPriceRatio: Optional[float]
 
 @router.get("/price/ratio/{productId}",
             summary="상품 단건에 대한 최초기준가격 대비 현재 기초자산가격 비율 조회",
@@ -31,12 +34,18 @@ class PriceRatio(BaseModel):
                             이 비율 정보들을 통해 사용자는 기초자산의 가격이 최초기준가격 대비 몇 퍼센트 상승하거나 하락했는지를 파악하고, 낙인 조건 도달 여부를 확인할 수 있습니다.<br/><br/>
                             **recentAndInitialPriceRatio**: 각 기초자산들의 최초기준가격 대비 현재 기초자산가격 비율들 중에 가장 낮은 비율
                         """,
-            response_model=PriceRatioResponse
-            )
-async def get_price_ratio(productId: int = Path(..., description="조회할 상품 id")):
+            response_model=PriceRatioResponse,
+            responses={
+                **product_service_exception_response,
+                **validate_initial_price_exception_response
+            })
+async def get_price_ratio(request: Request, productId: int = Path(..., description="조회할 상품 id")):
+    requestId = request.headers.get("requestId")
+
     # 특정 상품 단건 조회 API 통신
     try:
-        responseProduct = await eureka_client.do_service_async("product-service", f"/v1/product/{productId}")
+        headers = {"requestId": requestId}
+        responseProduct = await eureka_client.do_service_async("product-service", f"/v1/product/{productId}", headers=headers)
         product = json.loads(responseProduct)
     except urllib.error.URLError as e:
         raise ProductServiceServerException(productId)
@@ -46,6 +55,9 @@ async def get_price_ratio(productId: int = Path(..., description="조회할 상�
     equities = product["equities"].split(" / ")
     equityTickerSymbols = product["equityTickerSymbols"]
 
+    if datetime.strptime(initialBasePriceEvaluationDate, "%Y-%m-%d").date() > datetime.now().date():
+        raise ValidateInitialBasePriceEvaluationDateException(productId)
+
     # yfinance에 최초기준가격평가일에 대한 각 기초자산들의 종가 데이터들 가져오기
     result = {}
     initial_tmp = {}
@@ -54,7 +66,11 @@ async def get_price_ratio(productId: int = Path(..., description="조회할 상�
         initial_data = stock_data.history(start=initialBasePriceEvaluationDate,
                                           end=pd.Timestamp(initialBasePriceEvaluationDate) + pd.Timedelta(days=1))
 
-        initial_close_price = initial_data.loc[initialBasePriceEvaluationDate, "Close"]
+        try:
+            initial_close_price = initial_data.loc[initialBasePriceEvaluationDate, "Close"]
+        except:
+            raise ValidateInitialBasePriceEvaluationDateException(productId)
+
         initial_tmp[equity] = initial_close_price
     result["initial"] = initial_tmp
 
@@ -81,20 +97,24 @@ async def get_price_ratio(productId: int = Path(..., description="조회할 상�
 
     return result
 
-# todo : 성능 개선 필요
 @router.post("/price/ratio/list",
             summary="여러 상품 id로 최초기준가격 대비 현재 기초자산가격 비율 리스트 조회",
             description="""
-                            **recentAndInitialPriceRatio**: 각 기초자산들의 최초기준가격 대비 현재 기초자산가격 비율들 중에 가장 낮은 비율
+                            **recentAndInitialPriceRatio**: 각 기초자산들의 최초기준가격 대비 현재 기초자산가격 비율들 중에 가장 낮은 비율(종가 데이터를 못 가져오는 경우 null 값 반환)
                         """,
-            response_model=List[PriceRatio]
-            )
-async def get_price_ratio_list(data: ProductIdListModel):
+            response_model=List[PriceRatio],
+            responses={
+                **product_service_exception_response,
+                **validate_initial_price_exception_response
+            })
+async def get_price_ratio_list(request: Request, data: ProductIdListModel):
     productIdList = data.productIdList
+    requestId = request.headers.get("requestId")
 
     async def fetch_product_info(productId):
         try:
-            responseProduct = await eureka_client.do_service_async("product-service", f"/v1/product/{productId}")
+            headers = {"requestId": requestId}
+            responseProduct = await eureka_client.do_service_async("product-service", f"/v1/product/{productId}", headers=headers)
             return json.loads(responseProduct)
         except urllib.error.URLError as e:
             raise ProductServiceServerException(productId)
@@ -117,6 +137,13 @@ async def get_price_ratio_list(data: ProductIdListModel):
         equities = productResult["equities"].split(" / ")
         equityTickerSymbols = productResult["equityTickerSymbols"]
 
+        tmp["id"] = productId
+
+        if datetime.strptime(initialBasePriceEvaluationDate, "%Y-%m-%d").date() > datetime.now().date():
+            tmp["recentAndInitialPriceRatio"] = None
+            result.append(tmp)
+            continue
+
         # 각각의 종목에 대해 초기 및 최근 가격을 비동기적으로 가져옴
         tasks = []
         for equity in equities:
@@ -130,14 +157,22 @@ async def get_price_ratio_list(data: ProductIdListModel):
 
         # 최초기준가격 대비 최근 기초자산가격
         minComparedValue = float('inf')
+        initialBasePriceEvaluationDateFlag = False
         for (initial_data, recent_data), equity in zip(price_data, equities):
-            initial_close_price = initial_data.loc[initialBasePriceEvaluationDate, "Close"]
+            try:
+                initial_close_price = initial_data.loc[initialBasePriceEvaluationDate, "Close"]
+            except:
+                tmp["recentAndInitialPriceRatio"] = None
+                initialBasePriceEvaluationDateFlag = True
+                break
+
             recent_close_price = recent_data['Close'].iloc[-1]
             minComparedValue = min(minComparedValue, round((recent_close_price / initial_close_price) * 100, 2))
 
-        tmp["recentAndInitialPriceRatio"] = round((minComparedValue - 100), 2)
-        tmp["id"] = productId
+        if not initialBasePriceEvaluationDateFlag:
+            tmp["recentAndInitialPriceRatio"] = round((minComparedValue - 100), 2)
 
         result.append(tmp)
 
     return result
+
