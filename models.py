@@ -23,7 +23,7 @@ class MonteCarloResultError(Base):
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     last_modified_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
-class AiResult(Base):
+class AIResult(Base):
     __tablename__ = 'ai_result'
 
     ai_result_id = Column(BigInteger, primary_key=True, autoincrement=True, comment="id")
@@ -33,7 +33,7 @@ class AiResult(Base):
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     last_modified_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
-class AiResultError(Base):
+class AIResultError(Base):
     __tablename__ = 'ai_result_error'
 
     ai_result_error_id = Column(BigInteger, primary_key=True, autoincrement=True, comment="id")
