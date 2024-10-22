@@ -18,3 +18,7 @@ class ValidateInitialBasePriceEvaluationDateException(Exception):
 class MonteCarloResultException(Exception):
     def __init__(self, productId: int):
         self.productId = productId
+
+class AIResultException(Exception):
+    def __init__(self, productId: int):
+        self.productId = productId

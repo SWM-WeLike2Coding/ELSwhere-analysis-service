@@ -54,3 +54,21 @@ monte_carlo_result_exception_response = {
         }
     }
 }
+
+ai_result_exception_response = {
+    404: {
+        "description": "해당 상품에 대한 AI 분석 결과를 찾을 수 없습니다.",
+        "content": {
+            "application/json": {
+                "example": {
+                    "timestamp": str(datetime.now()),
+                    "trackingId": str(uuid.uuid4()),
+                    "status_code": 404,
+                    "status": "NOT_FOUND",
+                    "code": "AIResultException",
+                    "message": "해당 상품에 대한 AI 분석 결과를 찾을 수 없습니다."
+                }
+            }
+        }
+    }
+}
