@@ -21,7 +21,7 @@ class AIResponse(BaseModel):
             responses={
                 **ai_result_exception_response
             })
-async def get_monte_carlo(productId: int = Path(..., description="조회할 상품 id"),
+async def get_ai(productId: int = Path(..., description="조회할 상품 id"),
                           db: AsyncSession = Depends(get_db)):
     async with db as session:
         result = await session.execute(select(AIResult).where(AIResult.product_id == productId))
