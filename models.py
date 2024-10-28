@@ -29,7 +29,7 @@ class AIResult(Base):
     ai_result_id = Column(BigInteger, primary_key=True, autoincrement=True, comment="id")
     product_id = Column(BigInteger, nullable=False)
     repayment_prediction = Column(Boolean, nullable=False)
-    risk_score = Column(DECIMAL(5,4), nullable=False)
+    safety_score = Column(DECIMAL(5,4), nullable=False)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     last_modified_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 

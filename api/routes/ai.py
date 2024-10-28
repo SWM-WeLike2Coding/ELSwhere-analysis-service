@@ -13,7 +13,7 @@ class AIResponse(BaseModel):
     AIResultId: int
     productId: int
     repaymentPrediction: bool
-    riskScore: float
+    safetyScore: float
 
 @router.get("/{productId}",
             summary="상품 단건에 대한 AI 분석 결과 조회",
@@ -34,5 +34,5 @@ async def get_ai(productId: int = Path(..., description="조회할 상품 id"),
             AIResultId=ai_result.ai_result_id,
             productId=ai_result.product_id,
             repaymentPrediction=ai_result.repayment_prediction,
-            riskScore=ai_result.risk_score
+            safetyScore=ai_result.safety_score
         )
