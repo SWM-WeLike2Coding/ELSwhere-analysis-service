@@ -98,7 +98,7 @@ async def get_price_ratio(request: Request, productId: int = Path(..., descripti
     return result
 
 @router.post("/price/ratio/list",
-            summary="여러 상품 id로 최초기준가격 대비 현재 기초자산가격 비율 리스트 조회",
+            summary="여러 상품 id에 대한 최초기준가격 대비 현재 기초자산가격 비율 리스트 조회",
             description="""
                             **recentAndInitialPriceRatio**: 각 기초자산들의 최초기준가격 대비 현재 기초자산가격 비율들 중에 가장 낮은 비율(종가 데이터를 못 가져오는 경우 null 값 반환)
                         """,
