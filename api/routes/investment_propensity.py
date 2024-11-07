@@ -37,7 +37,8 @@ class ResponseProductIdList(BaseModel):
 @router.post("/list",
              summary="투자 성향에 만족하는 상품 id 리스트",
              description="riskTakingAbility(투자자 위험 감수 능력) : EXTREME_RISK(초고위험), HIGH_RISK(고위험), MEDIUM_RISK(중위험), LOW_RISK(저위험)<br/> \
-                            repaymentOption(희망 상환 기간) : EARLY_REPAYMENT(조기상환), MATURITY_REPAYMENT(만기상환), NO_PREFERENCE(상관없음)")
+                            repaymentOption(희망 상환 기간) : EARLY_REPAYMENT(조기상환), MATURITY_REPAYMENT(만기상환), NO_PREFERENCE(상관없음)",
+             response_model=List[int])
 async def get_satisfied_investment_propensity_products(request: RequestInvestmentPropensityInformation = Body(..., description="투자 성향을 확인할 정보"),
                                                        db: AsyncSession = Depends(get_db)):
     async with db as session:
@@ -47,16 +48,14 @@ async def get_satisfied_investment_propensity_products(request: RequestInvestmen
                                                 )
         satisfiedRiskPropensityProductIdList = riskPropensityQueryResult.scalars().all()
 
-        if satisfiedRiskPropensityProductIdList is None:
-            return ResponseProductIdList(productIdList=[])
+        if not satisfiedRiskPropensityProductIdList:
+            return []
 
         if request.repaymentOption == RepaymentOption.NO_PREFERENCE:
-            return ResponseProductIdList(productIdList=satisfiedRiskPropensityProductIdList)
+            return satisfiedRiskPropensityProductIdList
 
-        investmentPropensityQueryResult = await session.execute(get_product_ids_by_repayment_option(
-                                                        request.productIdList,
-                                                        request.repaymentOption)
-                                                    )
+        investmentPropensityQueryResult = await session.execute(get_product_ids_by_repayment_option(request.productIdList,
+                                                                                                    request.repaymentOption))
         satisfiedInvestmentPropensityProductIdList = investmentPropensityQueryResult.scalars().all()
 
         return satisfiedInvestmentPropensityProductIdList
