@@ -54,7 +54,7 @@ async def get_satisfied_investment_propensity_products(request: RequestInvestmen
         if request.repaymentOption == RepaymentOption.NO_PREFERENCE:
             return satisfiedRiskPropensityProductIdList
 
-        investmentPropensityQueryResult = await session.execute(get_product_ids_by_repayment_option(request.satisfiedRiskPropensityProductIdList,
+        investmentPropensityQueryResult = await session.execute(get_product_ids_by_repayment_option(satisfiedRiskPropensityProductIdList,
                                                                                                     request.repaymentOption))
         satisfiedInvestmentPropensityProductIdList = investmentPropensityQueryResult.scalars().all()
 
